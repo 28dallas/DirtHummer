@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { auth } from '../firebase'
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth'
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
 
@@ -70,19 +72,29 @@ function BidModal({ auction, onClose, isLoggedIn, onLoginSuccess }) {
 
   if (!auction) return null
 
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault()
     if (!loginData.email || !loginData.password) { setError('Please enter email and password.'); return }
-    onLoginSuccess()
-    setViewMode('payment')
+    try {
+      await signInWithEmailAndPassword(auth, loginData.email, loginData.password)
+      onLoginSuccess()
+      setViewMode('payment')
+    } catch (err) {
+      setError(err.message.replace('Firebase: ', ''))
+    }
   }
 
-  const handleSignupSubmit = (e) => {
+  const handleSignupSubmit = async (e) => {
     e.preventDefault()
     if (!signupData.email || !signupData.password || !signupData.confirm) { setError('Please fill in all fields.'); return }
     if (signupData.password !== signupData.confirm) { setError('Passwords do not match.'); return }
-    onLoginSuccess()
-    setViewMode('payment')
+    try {
+      await createUserWithEmailAndPassword(auth, signupData.email, signupData.password)
+      onLoginSuccess()
+      setViewMode('payment')
+    } catch (err) {
+      setError(err.message.replace('Firebase: ', ''))
+    }
   }
 
   return (
@@ -310,6 +322,11 @@ function AuctionCard({ auction, actionLabel = 'Bid', onActionClick }) {
 export default function AuctionsGrid() {
   const [selectedAuction, setSelectedAuction] = useState(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => setIsLoggedIn(!!user))
+    return unsub
+  }, [])
 
   const activeAuctions = [
     {
