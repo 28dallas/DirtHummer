@@ -53,185 +53,109 @@ function CountdownTimer({ endDate }) {
   return <span>{timeLeft}</span>
 }
 
-function BidModal({ auction, onClose }) {
-  const [viewMode, setViewMode] = useState('login')
-  const [statusMessage, setStatusMessage] = useState('')
+function BidModal({ auction, onClose, isLoggedIn, onLoginSuccess }) {
+  const [viewMode, setViewMode] = useState(isLoggedIn ? 'payment' : 'signup')
+  const [error, setError] = useState('')
   const [loginData, setLoginData] = useState({ email: '', password: '' })
   const [signupData, setSignupData] = useState({ email: '', password: '', confirm: '' })
 
   useEffect(() => {
-    if (!auction) {
-      setViewMode('login')
-      setStatusMessage('')
+    if (auction) {
+      setViewMode(isLoggedIn ? 'payment' : 'signup')
+      setError('')
       setLoginData({ email: '', password: '' })
       setSignupData({ email: '', password: '', confirm: '' })
     }
-  }, [auction])
+  }, [auction, isLoggedIn])
 
   if (!auction) return null
 
-  const handleLoginSubmit = (event) => {
-    event.preventDefault()
-    if (!loginData.email || !loginData.password) {
-      setStatusMessage('Please enter both email and password.')
-      return
-    }
-    setStatusMessage('Signed in successfully. Continue to payment below.')
+  const handleLoginSubmit = (e) => {
+    e.preventDefault()
+    if (!loginData.email || !loginData.password) { setError('Please enter email and password.'); return }
+    onLoginSuccess()
     setViewMode('payment')
   }
 
-  const handleSignupSubmit = (event) => {
-    event.preventDefault()
-    if (!signupData.email || !signupData.password || !signupData.confirm) {
-      setStatusMessage('Please fill in all signup fields.')
-      return
-    }
-    if (signupData.password !== signupData.confirm) {
-      setStatusMessage('Passwords do not match.')
-      return
-    }
-    setStatusMessage('Account created successfully. Continue to payment below.')
+  const handleSignupSubmit = (e) => {
+    e.preventDefault()
+    if (!signupData.email || !signupData.password || !signupData.confirm) { setError('Please fill in all fields.'); return }
+    if (signupData.password !== signupData.confirm) { setError('Passwords do not match.'); return }
+    onLoginSuccess()
     setViewMode('payment')
   }
-
-  // handled by StripePaymentForm below
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/70 p-6">
-      <div className="w-full max-w-6xl rounded-[32px] bg-white shadow-2xl ring-1 ring-black/10">
+      <div className="w-full max-w-4xl rounded-[32px] bg-white shadow-2xl ring-1 ring-black/10">
         <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Place a bid</p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Ready to win this rig?</h2>
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{auction.title}</h2>
+            {auction.currentBid !== undefined && (
+              <p className="mt-1 text-sm font-semibold text-slate-600">Current Bid: ${auction.currentBid.toLocaleString()}</p>
+            )}
           </div>
-          <button onClick={onClose} className="rounded-full bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900">
-            ×
-          </button>
+          <button onClick={onClose} className="rounded-full bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900">×</button>
         </div>
 
         <div className="px-6 py-6">
-          <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr]">
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-              <img
-                src={auction.images[0]}
-                alt={auction.title}
-                className="mx-auto h-48 w-full max-w-[360px] rounded-3xl object-cover"
-                onError={(e) => {
-                  e.currentTarget.onerror = null
-                  e.currentTarget.src = placeholderImage
-                }}
-              />
-              <div className="mt-5 text-center">
-                <p className="text-sm uppercase tracking-[0.24em] text-slate-500">{auction.title}</p>
-                {auction.currentBid !== undefined && (
-                  <p className="mt-3 text-base font-semibold text-slate-900">CURRENT BID / ${auction.currentBid.toLocaleString()}</p>
+          {viewMode === 'payment' ? (
+            <Elements stripe={stripePromise}>
+              <StripePaymentForm auction={auction} />
+            </Elements>
+          ) : (
+            <div className="mx-auto max-w-md space-y-4">
+              <div className="flex rounded-2xl border border-slate-200 overflow-hidden">
+                <button
+                  onClick={() => { setViewMode('signup'); setError('') }}
+                  className={`flex-1 py-3 text-sm font-bold uppercase tracking-[0.15em] transition ${
+                    viewMode === 'signup' ? 'bg-black text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >Sign Up</button>
+                <button
+                  onClick={() => { setViewMode('login'); setError('') }}
+                  className={`flex-1 py-3 text-sm font-bold uppercase tracking-[0.15em] transition ${
+                    viewMode === 'login' ? 'bg-black text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >Log In</button>
+              </div>
+
+              <form onSubmit={viewMode === 'signup' ? handleSignupSubmit : handleLoginSubmit} className="space-y-3">
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={viewMode === 'signup' ? signupData.email : loginData.email}
+                  onChange={(e) => viewMode === 'signup'
+                    ? setSignupData(p => ({ ...p, email: e.target.value }))
+                    : setLoginData(p => ({ ...p, email: e.target.value }))}
+                  className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900"
+                />
+                <input
+                  type="password"
+                  placeholder="Password"
+                  value={viewMode === 'signup' ? signupData.password : loginData.password}
+                  onChange={(e) => viewMode === 'signup'
+                    ? setSignupData(p => ({ ...p, password: e.target.value }))
+                    : setLoginData(p => ({ ...p, password: e.target.value }))}
+                  className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900"
+                />
+                {viewMode === 'signup' && (
+                  <input
+                    type="password"
+                    placeholder="Confirm Password"
+                    value={signupData.confirm}
+                    onChange={(e) => setSignupData(p => ({ ...p, confirm: e.target.value }))}
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900"
+                  />
                 )}
-              </div>
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                <button className="w-full rounded-full bg-black py-3 text-sm font-bold uppercase tracking-[0.18em] text-white hover:bg-gray-800 transition">
+                  {viewMode === 'signup' ? 'Create Account & Continue' : 'Log In & Continue'}
+                </button>
+              </form>
             </div>
-
-            <div className="space-y-6">
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <p className="text-sm text-slate-600">You need to be logged in to place a bid. Your free DirtHammer account helps you:</p>
-                <ul className="mt-4 space-y-3 text-sm text-slate-700">
-                  <li className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-black"></span>Save searches and favorite listings</li>
-                  <li className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-black"></span>Comment on live bidding</li>
-                  <li className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-black"></span>Confirm seller information</li>
-                  <li className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-black"></span>Submit secure payments</li>
-                  <li className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-black"></span>Watch your bids and auctions on desktop or mobile</li>
-                </ul>
-                <div className="mt-6 space-y-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setViewMode('payment')
-                      setStatusMessage('Logged in with Facebook. Continue to payment.')
-                    }}
-                    className="w-full rounded-full bg-slate-900 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-white transition hover:bg-slate-800"
-                  >
-                    Continue with Facebook
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('signup')}
-                    className="w-full rounded-full border border-slate-900 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-900 transition hover:bg-slate-100"
-                  >
-                    Sign Up With Email
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">{viewMode === 'signup' ? 'Create account' : 'Login with email here'}</p>
-                <form onSubmit={viewMode === 'signup' ? handleSignupSubmit : handleLoginSubmit} className="mt-5 space-y-4">
-                  <label className="block text-sm font-medium text-slate-700">
-                    Email
-                    <input
-                      type="email"
-                      value={viewMode === 'signup' ? signupData.email : loginData.email}
-                      onChange={(event) => {
-                        const value = event.target.value
-                        if (viewMode === 'signup') {
-                          setSignupData((prev) => ({ ...prev, email: value }))
-                        } else {
-                          setLoginData((prev) => ({ ...prev, email: value }))
-                        }
-                      }}
-                      placeholder="Email"
-                      className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900"
-                    />
-                  </label>
-                  <label className="block text-sm font-medium text-slate-700">
-                    Password
-                    <input
-                      type="password"
-                      value={viewMode === 'signup' ? signupData.password : loginData.password}
-                      onChange={(event) => {
-                        const value = event.target.value
-                        if (viewMode === 'signup') {
-                          setSignupData((prev) => ({ ...prev, password: value }))
-                        } else {
-                          setLoginData((prev) => ({ ...prev, password: value }))
-                        }
-                      }}
-                      placeholder="Password"
-                      className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900"
-                    />
-                  </label>
-                  {viewMode === 'signup' && (
-                    <label className="block text-sm font-medium text-slate-700">
-                      Confirm Password
-                      <input
-                        type="password"
-                        value={signupData.confirm}
-                        onChange={(event) => setSignupData((prev) => ({ ...prev, confirm: event.target.value }))}
-                        placeholder="Confirm Password"
-                        className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900"
-                      />
-                    </label>
-                  )}
-                  <button
-                    type="submit"
-                    className="w-full rounded-full bg-black px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-white transition hover:bg-gray-800"
-                  >
-                    {viewMode === 'signup' ? 'Create Account' : 'Log In'}
-                  </button>
-                  <p className="text-center text-[11px] uppercase tracking-[0.3em] text-slate-500">Forgot your password?</p>
-                </form>
-              </div>
-
-              {statusMessage && (
-                <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-                  {statusMessage}
-                </div>
-              )}
-
-              {viewMode === 'payment' && (
-                <Elements stripe={stripePromise}>
-                  <StripePaymentForm auction={auction} />
-                </Elements>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -385,6 +309,7 @@ function AuctionCard({ auction, actionLabel = 'Bid', onActionClick }) {
 
 export default function AuctionsGrid() {
   const [selectedAuction, setSelectedAuction] = useState(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   const activeAuctions = [
     {
@@ -536,7 +461,12 @@ export default function AuctionsGrid() {
 
   return (
     <>
-      <BidModal auction={selectedAuction} onClose={() => setSelectedAuction(null)} />
+      <BidModal
+        auction={selectedAuction}
+        onClose={() => setSelectedAuction(null)}
+        isLoggedIn={isLoggedIn}
+        onLoginSuccess={() => setIsLoggedIn(true)}
+      />
       <div id="main-page" className="mt-8">
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {activeAuctions.map((auction) => (
