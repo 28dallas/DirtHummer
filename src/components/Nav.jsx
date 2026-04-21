@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import logoImage from '../../IMG/LOGO/Gemini_Generated_Image_72ctd372ctd372ct.png'
 
-export default function Nav({ onAuthClick }) {
+export default function Nav({ onAuthClick, user, onSignOut }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
@@ -25,11 +25,20 @@ export default function Nav({ onAuthClick }) {
           <a className="font-semibold text-sm uppercase hover:text-gray-600 transition" href="#/guides">Buyer's Guides</a>
         </div>
 
-        {/* Sign In Button */}
+        {/* Auth Button */}
         <div className="hidden md:block">
-          <button onClick={() => onAuthClick?.('login')} className="px-6 py-2 bg-black text-white font-bold text-sm uppercase rounded hover:bg-gray-800 transition">
-            Sign In
-          </button>
+          {user ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-gray-700 truncate max-w-[160px]">{user.email}</span>
+              <button onClick={onSignOut} className="px-4 py-2 border border-black text-black font-bold text-sm uppercase rounded hover:bg-gray-100 transition">
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => onAuthClick?.('login')} className="px-6 py-2 bg-black text-white font-bold text-sm uppercase rounded hover:bg-gray-800 transition">
+              Sign In
+            </button>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
