@@ -280,7 +280,7 @@ function StripePaymentForm({ auction }) {
   )
 }
 
-function AuctionCard({ auction, actionLabel = 'Bid', onActionClick }) {
+function AuctionCard({ auction, actionLabel = 'Bid', onActionClick, onCardClick }) {
   const [activeIndex, setActiveIndex] = useState(0)
 
   useEffect(() => {
@@ -289,11 +289,11 @@ function AuctionCard({ auction, actionLabel = 'Bid', onActionClick }) {
 
   const imageCount = auction.images.length
 
-  const prevImage = () => setActiveIndex((current) => (current - 1 + imageCount) % imageCount)
-  const nextImage = () => setActiveIndex((current) => (current + 1) % imageCount)
+  const prevImage = (e) => { e.stopPropagation(); setActiveIndex((current) => (current - 1 + imageCount) % imageCount) }
+  const nextImage = (e) => { e.stopPropagation(); setActiveIndex((current) => (current + 1) % imageCount) }
 
   return (
-    <div className="group bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-lg transition">
+    <div onClick={onCardClick} className="group bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-lg transition cursor-pointer">
       <div className="relative h-56 overflow-hidden bg-slate-900">
         <img
           src={auction.images[activeIndex]}
@@ -307,7 +307,7 @@ function AuctionCard({ auction, actionLabel = 'Bid', onActionClick }) {
         <div className="absolute inset-y-0 left-0 flex items-center px-2">
           <button
             type="button"
-            onClick={prevImage}
+          onClick={(e) => { e.stopPropagation(); prevImage(e) }}
             className="rounded-full bg-black/60 p-2 text-white transition hover:bg-black"
           >
             ‹
@@ -316,7 +316,7 @@ function AuctionCard({ auction, actionLabel = 'Bid', onActionClick }) {
         <div className="absolute inset-y-0 right-0 flex items-center px-2">
           <button
             type="button"
-            onClick={nextImage}
+          onClick={(e) => { e.stopPropagation(); nextImage(e) }}
             className="rounded-full bg-black/60 p-2 text-white transition hover:bg-black"
           >
             ›
@@ -357,7 +357,7 @@ function AuctionCard({ auction, actionLabel = 'Bid', onActionClick }) {
 
         <button
           type="button"
-          onClick={onActionClick}
+          onClick={(e) => { e.stopPropagation(); onActionClick?.() }}
           className="mt-4 w-full rounded-full bg-black px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition hover:bg-gray-800"
         >
           {actionLabel}
@@ -367,9 +367,13 @@ function AuctionCard({ auction, actionLabel = 'Bid', onActionClick }) {
   )
 }
 
-export default function AuctionsGrid() {
+export default function AuctionsGrid({ onViewDetail, searchQuery = '' }) {
   const [selectedAuction, setSelectedAuction] = useState(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [search, setSearch] = useState(searchQuery)
+  const [filter, setFilter] = useState('All')
+
+  useEffect(() => { setSearch(searchQuery) }, [searchQuery])
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => setIsLoggedIn(!!user))
@@ -524,6 +528,13 @@ export default function AuctionsGrid() {
     { name: 'MSN', src: 'https://dirthammer.com/partner-logos/msn.svg' }
   ]
 
+  const categories = ['All', 'UTV', 'ATV', 'Golf Cart', 'Side-by-Side']
+  const filtered = activeAuctions.filter(a => {
+    const matchSearch = a.title.toLowerCase().includes(search.toLowerCase())
+    const matchFilter = filter === 'All' || a.title.toLowerCase().includes(filter.toLowerCase())
+    return matchSearch && matchFilter
+  })
+
   return (
     <>
       <BidModal
@@ -533,10 +544,35 @@ export default function AuctionsGrid() {
         onLoginSuccess={() => setIsLoggedIn(true)}
       />
       <div id="main-page" className="mt-8">
+        {/* Search & Filter */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-3">
+          <input
+            type="text"
+            placeholder="Search auctions..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="flex-1 rounded-full border border-gray-300 px-5 py-3 text-sm outline-none focus:border-black"
+          />
+          <div className="flex gap-2 flex-wrap">
+            {categories.map(c => (
+              <button key={c} onClick={() => setFilter(c)}
+                className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-widest transition ${
+                  filter === c ? 'bg-black text-white' : 'border border-gray-300 text-gray-600 hover:border-black'
+                }`}>{c}</button>
+            ))}
+          </div>
+        </div>
+
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {activeAuctions.map((auction) => (
-            <AuctionCard key={auction.id} auction={auction} onActionClick={() => setSelectedAuction(auction)} />
+          {filtered.map((auction) => (
+            <AuctionCard key={auction.id} auction={auction}
+              onActionClick={() => setSelectedAuction(auction)}
+              onCardClick={() => onViewDetail(auction)}
+            />
           ))}
+          {filtered.length === 0 && (
+            <p className="col-span-3 text-center text-slate-500 py-12">No auctions match your search.</p>
+          )}
         </section>
 
       <section className="mt-8">

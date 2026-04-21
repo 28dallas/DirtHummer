@@ -6,6 +6,8 @@ import Footer from './components/Footer'
 import HowItWorks from './components/HowItWorks'
 import GuidesPage from './components/GuidesPage'
 import ListYourPage from './components/ListYourPage'
+import AuctionDetailPage from './components/AuctionDetailPage'
+import UserDashboard from './components/UserDashboard'
 import { auth } from './firebase'
 import {
   onAuthStateChanged,
@@ -20,9 +22,14 @@ function App() {
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authMode, setAuthMode] = useState('login')
   const [user, setUser] = useState(null)
+  const [detailAuction, setDetailAuction] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    const handleHashChange = () => setRoute(window.location.hash || '#/')
+    const handleHashChange = () => {
+      setRoute(window.location.hash || '#/')
+      setDetailAuction(null)
+    }
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
@@ -38,9 +45,24 @@ function App() {
   }
 
   const renderRoute = () => {
+    if (detailAuction) {
+      return (
+        <AuctionDetailPage
+          auction={detailAuction}
+          onBack={() => setDetailAuction(null)}
+          onBid={(auction) => { setDetailAuction(null) }}
+        />
+      )
+    }
+
     if (route === '#/auctions/new-listing') return <ListYourPage onAuthClick={openAuthModal} />
     if (route === '#/how-it-works') return <HowItWorks />
     if (route === '#/guides') return <GuidesPage />
+    if (route === '#/dashboard') {
+      if (!user) { openAuthModal('login'); return null }
+      return <UserDashboard />
+    }
+
     return (
       <div className="max-w-6xl mx-auto px-6 py-8">
         <Hero />
@@ -49,7 +71,10 @@ function App() {
             <div className="h-0.5 w-24 bg-black"></div>
             <h2 className="text-3xl font-bold uppercase">Active Auctions</h2>
           </div>
-          <AuctionsGrid />
+          <AuctionsGrid
+            onViewDetail={(auction) => setDetailAuction(auction)}
+            searchQuery={searchQuery}
+          />
         </section>
       </div>
     )
@@ -57,7 +82,12 @@ function App() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
-      <Nav onAuthClick={openAuthModal} user={user} onSignOut={() => signOut(auth)} />
+      <Nav
+        onAuthClick={openAuthModal}
+        user={user}
+        onSignOut={() => signOut(auth)}
+        onSearch={(q) => { setSearchQuery(q); window.location.hash = '#/' }}
+      />
       <main className="flex-grow">{renderRoute()}</main>
       <Footer onAuthClick={openAuthModal} />
       {authModalOpen && (
@@ -111,33 +141,24 @@ function AuthModal({ mode, onClose, onSuccess }) {
 
         <div className="px-6 py-6 space-y-4">
           <div className="flex rounded-2xl border border-slate-200 overflow-hidden">
-            <button
-              onClick={() => { setViewMode('login'); setError('') }}
-              className={`flex-1 py-3 text-sm font-bold uppercase tracking-[0.15em] transition ${viewMode === 'login' ? 'bg-black text-white' : 'bg-white text-slate-700'}`}
-            >Sign In</button>
-            <button
-              onClick={() => { setViewMode('signup'); setError('') }}
-              className={`flex-1 py-3 text-sm font-bold uppercase tracking-[0.15em] transition ${viewMode === 'signup' ? 'bg-black text-white' : 'bg-white text-slate-700'}`}
-            >Sign Up</button>
+            <button onClick={() => { setViewMode('login'); setError('') }}
+              className={`flex-1 py-3 text-sm font-bold uppercase tracking-[0.15em] transition ${viewMode === 'login' ? 'bg-black text-white' : 'bg-white text-slate-700'}`}>
+              Sign In
+            </button>
+            <button onClick={() => { setViewMode('signup'); setError('') }}
+              className={`flex-1 py-3 text-sm font-bold uppercase tracking-[0.15em] transition ${viewMode === 'signup' ? 'bg-black text-white' : 'bg-white text-slate-700'}`}>
+              Sign Up
+            </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3">
-            <input
-              type="email" placeholder="Email" value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900"
-            />
-            <input
-              type="password" placeholder="Password" value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900"
-            />
+            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900" />
+            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900" />
             {viewMode === 'signup' && (
-              <input
-                type="password" placeholder="Confirm Password" value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900"
-              />
+              <input type="password" placeholder="Confirm Password" value={confirm} onChange={(e) => setConfirm(e.target.value)}
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900" />
             )}
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button className="w-full rounded-full bg-black py-3 text-sm font-bold uppercase tracking-[0.18em] text-white hover:bg-gray-800 transition">
