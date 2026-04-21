@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { auth } from '../firebase'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth'
 
@@ -179,6 +179,11 @@ function StripePaymentForm({ auction }) {
   const elements = useElements()
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
+  const [country, setCountry] = useState('US')
+
+  const inputStyle = {
+    style: { base: { fontSize: '15px', color: '#111827', '::placeholder': { color: '#9ca3af' } } }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -195,7 +200,7 @@ function StripePaymentForm({ auction }) {
       if (serverError) { setResult(serverError); setLoading(false); return }
 
       const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: { card: elements.getElement(CardElement) },
+        payment_method: { card: elements.getElement(CardNumberElement) },
       })
       if (error) {
         setResult(error.message)
@@ -208,23 +213,66 @@ function StripePaymentForm({ auction }) {
     setLoading(false)
   }
 
+  const countries = [
+    'United States', 'Kenya', 'United Kingdom', 'Canada', 'Australia',
+    'Germany', 'France', 'South Africa', 'Nigeria', 'India'
+  ]
+
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Payment details</p>
-      <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-        <div className="rounded-2xl border border-slate-300 bg-white px-4 py-3">
-          <CardElement options={{ hidePostalCode: true, style: { base: { fontSize: '14px', color: '#0f172a' } } }} />
+    <div>
+      <h3 className="text-lg font-bold text-slate-900 mb-1">Add Payment Method</h3>
+      <p className="text-sm text-slate-500 mb-5">Your payment method will be used to authorize holds when you place bids, make offers, or submit listings.</p>
+      <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-200 p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-blue-600">💳</span>
+          <span className="font-semibold text-slate-800">Card</span>
         </div>
+
+        <div>
+          <label className="block text-sm text-slate-600 mb-1">Card number</label>
+          <div className="rounded-xl border border-slate-300 bg-white px-4 py-3">
+            <CardNumberElement options={inputStyle} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-slate-600 mb-1">Expiration date</label>
+            <div className="rounded-xl border border-slate-300 bg-white px-4 py-3">
+              <CardExpiryElement options={inputStyle} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm text-slate-600 mb-1">Security code</label>
+            <div className="rounded-xl border border-slate-300 bg-white px-4 py-3">
+              <CardCvcElement options={inputStyle} />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm text-slate-600 mb-1">Country</label>
+          <select
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none"
+          >
+            {countries.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+
+        <p className="text-xs text-slate-400">By providing your card information, you allow DirtHammer to charge your card for future payments in accordance with their terms.</p>
+
         <button
           type="submit"
           disabled={!stripe || loading}
-          className="w-full rounded-full bg-black px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-white transition hover:bg-gray-800 disabled:opacity-50"
+          className="w-full rounded-full bg-black py-3 text-sm font-bold uppercase tracking-[0.18em] text-white hover:bg-gray-800 transition disabled:opacity-50"
         >
-          {loading ? 'Processing…' : `Pay $${auction.currentBid?.toLocaleString() || '0'}`}
+          {loading ? 'Processing…' : `Save Payment Method`}
         </button>
       </form>
       {result && (
-        <div className={`mt-4 rounded-3xl border p-4 text-sm ${
+        <div className={`mt-4 rounded-2xl border p-4 text-sm ${
           result.includes('succeeded') ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-900'
         }`}>{result}</div>
       )}
